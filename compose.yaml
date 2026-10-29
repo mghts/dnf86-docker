@@ -1,0 +1,124 @@
+name: ${COMPOSE_PROJECT_NAME:-dnf86}
+
+x-runtime: &runtime
+  image: ${DNF_IMAGE:-dnf86-runtime:261024}
+  platform: linux/amd64
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+x-database-data: &database-data
+  type: bind
+  source: ${DNF_DATA_DIR:-./data}/database
+  target: /state/db
+  bind:
+    create_host_path: true
+
+x-game-data: &game-data
+  type: bind
+  source: ${DNF_DATA_DIR:-./data}/game
+  target: /state/game
+  bind:
+    create_host_path: true
+
+services:
+  init:
+    <<: *runtime
+    command: [seed]
+    restart: "no"
+    network_mode: none
+    volumes:
+      - type: bind
+        source: ${DNF_SOURCE_DIR:-./private/source}
+        target: /seed
+        read_only: true
+        bind:
+          create_host_path: false
+      - *database-data
+      - *game-data
+
+  database:
+    <<: *runtime
+    command: [database]
+    restart: unless-stopped
+    stop_grace_period: 120s
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?run scripts/configure.py first}
+      DNF_DB_PASSWORD: ${DNF_DB_PASSWORD:?run scripts/configure.py first}
+      MYSQL_EXTERNAL_ACCESS: "1"
+      MYSQL_MAX_CONNECTIONS: ${MYSQL_MAX_CONNECTIONS:-10000}
+      MYSQL_CHARACTER_SET_SERVER: ${MYSQL_CHARACTER_SET_SERVER:-latin1}
+      MYSQL_COLLATION_SERVER: ${MYSQL_COLLATION_SERVER:-}
+      MYSQL_MAX_ALLOWED_PACKET: ${MYSQL_MAX_ALLOWED_PACKET:-}
+    volumes:
+      - *database-data
+      - ${DNF_SOURCE_DIR:-./private/source}/compat.json:/seed/compat.json:ro
+    # Shared network namespace keeps the source's loopback-only dependencies.
+    # Publish the game/client and MySQL ports for the public-server deployment.
+    ports:
+      - "${DNF_LISTEN_IP:-0.0.0.0}:7001:7001/tcp"
+      - "${DNF_LISTEN_IP:-0.0.0.0}:7001:7001/udp"
+      - "${DNF_LISTEN_IP:-0.0.0.0}:10011:10011/tcp"
+      - "${DNF_LISTEN_IP:-0.0.0.0}:11011:11011/udp"
+      - "${DNF_LISTEN_IP:-0.0.0.0}:7200:7200/tcp"
+      - "${DNF_LISTEN_IP:-0.0.0.0}:7200:7200/udp"
+      - "${DNF_LISTEN_IP:-0.0.0.0}:2311-2313:2311-2313/udp"
+      - "${MYSQL_EXTERNAL_LISTEN_IP:-0.0.0.0}:${MYSQL_EXTERNAL_PORT:-3306}:3306/tcp"
+    healthcheck:
+      test: [CMD, /usr/bin/python2.7, /opt/dnf/runtime.py, db-health]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 120s
+
+  game:
+    <<: *runtime
+    command: [game]
+    restart: unless-stopped
+    stop_grace_period: 120s
+    depends_on:
+      database:
+        condition: service_healthy
+        restart: true
+    network_mode: service:database
+    environment:
+      DNF_DB_PASSWORD: ${DNF_DB_PASSWORD:?run scripts/configure.py first}
+      DNF_PUBLIC_IP: ${DNF_PUBLIC_IP:?set the IPv4 address used by the client}
+      MODULE_START_DELAY: ${MODULE_START_DELAY:-1}
+    volumes:
+      - *game-data
+      - ${DNF_SOURCE_DIR:-./private/source}/compat.json:/seed/compat.json:ro
+    shm_size: 256m
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      core: 0
+    healthcheck:
+      test: [CMD, /usr/bin/python2.7, /opt/dnf/runtime.py, game-health]
+      interval: 20s
+      timeout: 10s
+      retries: 6
+      start_period: 240s
+
+  backup:
+    <<: *runtime
+    profiles: [maintenance]
+    command: [backup]
+    network_mode: none
+    volumes:
+      - <<: *database-data
+        read_only: true
+      - <<: *game-data
+        read_only: true
+      - ${DNF_SOURCE_DIR:-./private/source}/compat.json:/seed/compat.json:ro
+      - type: bind
+        source: ${DNF_BACKUP_DIR:-./private/backups}
+        target: /backup
+        bind:
+          create_host_path: false

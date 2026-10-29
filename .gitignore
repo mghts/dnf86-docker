@@ -1,0 +1,9 @@
+private/
+data/
+data-*/
+.env
+.env.*
+.dnf86-install.lock
+.DS_Store
+__pycache__/
+*.pyc
