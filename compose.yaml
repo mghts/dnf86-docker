@@ -1,7 +1,7 @@
 name: ${COMPOSE_PROJECT_NAME:-dnf86}
 
 x-runtime: &runtime
-  image: ${DNF_IMAGE:-dnf86-runtime:261024}
+  image: ${DNF_IMAGE:-dnf86-runtime:261030-timeout}
   platform: linux/amd64
   logging:
     driver: json-file

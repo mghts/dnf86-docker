@@ -3,8 +3,8 @@ set -euo pipefail
 umask 077
 
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
-RELEASE='v2026.10.29'
-IMAGE='dnf86-runtime-261027-repaired-linux-amd64.tar.gz'
+RELEASE='v2026.10.30'
+IMAGE='dnf86-runtime-261030-timeout-linux-amd64.tar.gz'
 repository=''
 public_ip=''
 

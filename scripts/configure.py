@@ -30,7 +30,7 @@ if args.output.exists() or args.output.is_symlink():
     raise FileExistsError('Configuration already exists; preserve the existing data and passwords: %s' % args.output)
 prepare_data_directory(args.data_dir)
 with args.output.open('x') as f:
-    f.write('COMPOSE_PROJECT_NAME=%s\nDNF_IMAGE=dnf86-runtime:261024\n' % args.project_name)
+    f.write('COMPOSE_PROJECT_NAME=%s\nDNF_IMAGE=dnf86-runtime:261030-timeout\n' % args.project_name)
     data_setting = str(args.data_dir) if args.data_dir.is_absolute() else './' + str(args.data_dir)
     f.write('DNF_DATA_DIR=%s\n' % data_setting)
     f.write('DNF_PUBLIC_IP=%s\nDNF_LISTEN_IP=%s\n' % (args.public_ip, args.listen_ip))
