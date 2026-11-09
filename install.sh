@@ -3,7 +3,7 @@ set -euo pipefail
 umask 077
 
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
-RELEASE='v2026.10.30'
+RELEASE='v2026.11.09'
 IMAGE='dnf86-runtime-261030-timeout-linux-amd64.tar.gz'
 repository=''
 public_ip=''
